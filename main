@@ -1032,3 +1032,4 @@ with tab2:
                     for phrase, num in sorted(parse_negatives(sc.get("negative_points","")), key=lambda x: x[1], reverse=True)[:5]:
                         st.write(f"- ❌ {sentence_case(phrase)} ({num})")
 
+
