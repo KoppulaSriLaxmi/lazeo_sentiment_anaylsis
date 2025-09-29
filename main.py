@@ -892,36 +892,127 @@ with tab2:
 
             st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
             st.subheader("✅ Key Positives")
-            pos_points = sorted(parse_phrase_count_list(selected_row.get("positive_points","")), key=lambda x: x[1], reverse=True)
-            for phrase, num in pos_points:
-                st.markdown(f"<div style='background:#0b3b0b; padding:8px; margin:5px; border-radius:8px; color:#a5d6a7;'>✅ {sentence_case(phrase)} ({num})</div>", unsafe_allow_html=True)
+
+            # --- Key Positives (collapsible) ---
+            pos_points = sorted(
+                parse_phrase_count_list(selected_row.get("positive_points","")),
+                key=lambda x: x[1], reverse=True
+            )
+            
+            #with st.expander(f"✅ Key Positives ({len(pos_points)})", expanded=False):
+            with st.expander(f"✅ Expand to See Customer Praises", expanded=False):
+                if not pos_points:
+                    st.info("No positive points found for this store.")
+                else:
+                    # pastel chip style (optional)
+                    st.markdown("""
+                    <style>
+                    .chip-pos { background:#2e7d32; color:#fff; padding:8px 10px; margin:6px 6px 0 0; 
+                                display:inline-block; border-radius:8px; font-size:14px; }
+                    </style>
+                    """, unsafe_allow_html=True)
+                    for phrase, num in pos_points:
+                        st.markdown(f"<span class='chip-pos'>✅ {sentence_case(phrase)} ({num})</span>", unsafe_allow_html=True)
+
+
+            
+            # pos_points = sorted(parse_phrase_count_list(selected_row.get("positive_points","")), key=lambda x: x[1], reverse=True)
+            # for phrase, num in pos_points:
+            #     st.markdown(f"<div style='background:#0b3b0b; padding:8px; margin:5px; border-radius:8px; color:#a5d6a7;'>✅ {sentence_case(phrase)} ({num})</div>", unsafe_allow_html=True)
 
             st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
             if not neg_df.empty:
                 st.subheader("❌ Key Negatives")
-                store_neg = neg_df[neg_df["title"] == selected_row["title"]].copy()
-                if store_neg.empty:
-                    st.info("No negative issues found for this store in the new dataset.")
-                else:
-                    issue_counts = store_neg["issue"].value_counts().reset_index()
-                    issue_counts.columns = ["Issue", "Count"]
-                    for _, row_issue in issue_counts.iterrows():
-                        issue, count = row_issue["Issue"], row_issue["Count"]
-                        with st.expander(f"{issue} ({count})", expanded=False):
-                            reviews_for_issue = store_neg[store_neg["issue"] == issue]
-                            if not reviews_for_issue.empty:
-                                max_to_show = len(reviews_for_issue)
-                                # <<< FIX: Only show slider if there is more than one review.
-                                if max_to_show > 1:
-                                    n = st.slider(
-                                        f"Number of reviews to display for {issue}", 1, max_to_show, min(5, max_to_show),
-                                        key=f"tab2_neg_slider_{safe_key(selected_row['title'])}_{safe_key(issue)}" # <<< FIX: Unique key
-                                    )
-                                    reviews_to_show = reviews_for_issue.head(n)
-                                else:
-                                    reviews_to_show = reviews_for_issue.head(1)
-                                for _, r in reviews_to_show.iterrows():
-                                    st.markdown(f"<div style='background:#111111; padding:10px; margin:6px 0; border-radius:8px; color:#ef9a9a;white-space:pre-wrap; word-break:break-word; line-height:1.4;'>{r.get('textTranslated','—')}</div>", unsafe_allow_html=True)
+
+                # --- Key Negatives (collapsible with per-issue breakdown) ---
+                with st.expander("❌ Expand to See Customer Concerns", expanded=False):
+                    if neg_df is None or neg_df.empty:
+                        st.info("No negative issues dataset available.")
+                    else:
+                        # filter this store, be robust to stray spaces/case
+                        store_title = str(selected_row.get("title","")).strip()
+                        store_neg = neg_df[neg_df["title"].astype(str).str.strip() == store_title].copy()
+                
+                        if store_neg.empty:
+                            st.info("No negative issues found for this store in the dataset.")
+                        else:
+                            # normalize issue text a bit
+                            store_neg["issue"] = store_neg["issue"].astype(str).str.strip()
+                            store_neg = store_neg[store_neg["issue"] != ""]
+                
+                            # summary chips
+                            issue_counts = (store_neg["issue"]
+                                            .value_counts(dropna=False)
+                                            .reset_index())
+                            issue_counts.columns = ["Issue", "Count"]
+                
+                            # optional red chips for quick glance
+                            st.markdown("""
+                            <style>
+                              .chip-neg { background:#c62828; color:#fff; padding:8px 10px; margin:6px 6px 0 0;
+                                          display:inline-block; border-radius:8px; font-size:14px; }
+                            </style>
+                            """, unsafe_allow_html=True)
+                            #for _, row_issue in issue_counts.iterrows():
+                                #st.markdown(f"<span class='chip-neg'>❌ {row_issue['Issue']} ({row_issue['Count']})</span>",unsafe_allow_html=True)
+                
+                            #st.markdown("---")
+                
+                            # detailed breakdown per issue (like your old code)
+                            for _, row_issue in issue_counts.iterrows():
+                                issue = row_issue["Issue"]
+                                count = int(row_issue["Count"])
+                
+                                with st.expander(f"{issue} ({count})", expanded=False):
+                                    reviews_for_issue = store_neg[store_neg["issue"] == issue].copy()
+                
+                                    if reviews_for_issue.empty:
+                                        st.info("No reviews captured for this issue.")
+                                        continue
+                
+                                    max_to_show = len(reviews_for_issue)
+                                    if max_to_show > 1:
+                                        n = st.slider(
+                                            f"Number of reviews to display for {issue}",
+                                            1, max_to_show, min(5, max_to_show),
+                                            key=f"tab2_neg_slider_{safe_key(store_title)}_{safe_key(issue)}"
+                                        )
+                                        reviews_to_show = reviews_for_issue.head(n)
+                                    else:
+                                        reviews_to_show = reviews_for_issue.head(1)
+                
+                                    for _, r in reviews_to_show.iterrows():
+                                        txt = r.get("textTranslated", r.get("text", "—"))
+                                        st.markdown(
+                                            "<div style='background:#1e1e1e; padding:10px; margin:6px 0; border-radius:8px;"
+                                            " white-space:pre-wrap; word-break:break-word; line-height:1.4;'>"
+                                            f"{txt}</div>",
+                                            unsafe_allow_html=True
+                                        )
+
+                # store_neg = neg_df[neg_df["title"] == selected_row["title"]].copy()
+                # if store_neg.empty:
+                #     st.info("No negative issues found for this store in the new dataset.")
+                # else:
+                #     issue_counts = store_neg["issue"].value_counts().reset_index()
+                #     issue_counts.columns = ["Issue", "Count"]
+                #     for _, row_issue in issue_counts.iterrows():
+                #         issue, count = row_issue["Issue"], row_issue["Count"]
+                #         with st.expander(f"{issue} ({count})", expanded=False):
+                #             reviews_for_issue = store_neg[store_neg["issue"] == issue]
+                #             if not reviews_for_issue.empty:
+                #                 max_to_show = len(reviews_for_issue)
+                #                 # <<< FIX: Only show slider if there is more than one review.
+                #                 if max_to_show > 1:
+                #                     n = st.slider(
+                #                         f"Number of reviews to display for {issue}", 1, max_to_show, min(5, max_to_show),
+                #                         key=f"tab2_neg_slider_{safe_key(selected_row['title'])}_{safe_key(issue)}" # <<< FIX: Unique key
+                #                     )
+                #                     reviews_to_show = reviews_for_issue.head(n)
+                #                 else:
+                #                     reviews_to_show = reviews_for_issue.head(1)
+                #                 for _, r in reviews_to_show.iterrows():
+                #                     st.markdown(f"<div style='background:#111111; padding:10px; margin:6px 0; border-radius:8px; color:#ef9a9a;white-space:pre-wrap; word-break:break-word; line-height:1.4;'>{r.get('textTranslated','—')}</div>", unsafe_allow_html=True)
 
             st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
             st.markdown("**Staff Liked:**")
@@ -1031,5 +1122,4 @@ with tab2:
                     st.markdown("**Top Negatives**")
                     for phrase, num in sorted(parse_negatives(sc.get("negative_points","")), key=lambda x: x[1], reverse=True)[:5]:
                         st.write(f"- ❌ {sentence_case(phrase)} ({num})")
-
 
