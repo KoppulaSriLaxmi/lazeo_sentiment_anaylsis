@@ -1,0 +1,15 @@
+[theme]
+base="dark"
+
+# Accent color (buttons, sliders, links)
+primaryColor="#4caf50"          # medium green (not neon, softer on eyes)
+
+# Backgrounds
+backgroundColor="#121212"       # near-black (material dark background)
+secondaryBackgroundColor="#1e1e1e"  # slightly lighter dark grey for panels/sidebar
+
+# Text
+textColor="#e0e0e0"             # soft white/grey (less stark than pure white)
+
+# Secondary color (tags, highlights, radio/check)
+secondaryColor="#e53935"        # rich red (softer & brighter than crimson)
